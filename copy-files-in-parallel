@@ -1,0 +1,55 @@
+#!/usr/bin/python
+import argparse
+import os
+import subprocess
+import time
+
+parser = argparse.ArgumentParser(description='Copy files in parallel.')
+parser.add_argument('source', help='source path')
+parser.add_argument('destination', help='destination path')
+parser.add_argument('-j', default=8, type=int, help='number of threads to use')
+parser.add_argument('-c', default=1000, type=int, help='number of files in one chunk')
+parser.add_argument('--lfs', action='store_true', help='use lustre utilities')
+parser.add_argument('--tmp', default='/dev/shm/', help='path to store temporary data')
+args = parser.parse_args()
+
+# remove trailing slashes
+source = args.source.rstrip('/')
+destination = args.destination.rstrip('/')
+
+# prepare tmp directory
+timestamp = str(time.time())
+tmp_dir = os.path.join(args.tmp, 'copy-files-in-parallel', timestamp)
+os.makedirs(tmp_dir)
+
+# prepare find exe
+if args.lfs:
+    find = 'lfs find'
+else:
+    find = 'find'
+
+# find files
+files_file = os.path.join(tmp_dir, 'files')
+subprocess.call('%s . -type f > %s' % (find, files_file), shell=True, cwd=source)
+
+# split the files file in chunks of 100
+chunk_file = os.path.join(tmp_dir, 'chunk')
+subprocess.call('split -l %i -d -a 8 %s %s' % (args.c, files_file, chunk_file), shell=True)
+
+# create a file containing all the copy jobs to perform
+jobs_file = os.path.join(tmp_dir, 'jobs')
+jobs_file_handler = open(jobs_file,'w')
+for filename in sorted(os.listdir(tmp_dir)):
+    if filename.startswith('chunk'):
+        chunk_file = os.path.join(tmp_dir, filename)
+        chunk_num = filename.split('chunk')[1]
+        log_file = os.path.join(tmp_dir, 'log' + chunk_num)
+        job = 'rsync -aH --no-l -e \'ssh -c arcfour\' --files-from=%s --log-file=%s %s %s\n' % (chunk_file, log_file, source, destination)
+        jobs_file_handler.write(job)
+jobs_file_handler.close()
+
+# run parallel with the jobs file
+subprocess.call('cat %s | parallel -P%i --eta' % (jobs_file, args.j), shell=True)
+
+# run rsync to on the whole thing for last a check
+subprocess.call('rsync -av --delete %s/ %s/' % (source, destination), shell=True)

@@ -26,6 +26,7 @@ or
 
 ```
 copy-files-in-parallel /path/to/foo other.machine:/path/to/bar
+copy-files-in-parallel other.machine:/path/to/bar /path/to/foo
 ```
 
 for a copy using ssh. Please note that trailing slashes are not allowed.

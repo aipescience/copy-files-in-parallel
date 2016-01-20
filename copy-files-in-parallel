@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 
+
 parser = argparse.ArgumentParser(description='Copy files in parallel.')
 parser.add_argument('source', help='source path')
 parser.add_argument('destination', help='destination path')
@@ -30,7 +31,17 @@ else:
 
 # find files
 files_file = os.path.join(tmp_dir, 'files')
-subprocess.call('%s . -type f > %s' % (find, files_file), shell=True, cwd=source)
+
+if ':' in source:
+    # Hacky, but it works. If source is a remote machine (so it's
+    # given with user@machine:/path/to/dir) we just split it at the ":"
+    # This way we can use both parts of the string with the remote find
+    # command.
+    source_um, source_path = source.split(':')
+    subprocess.call('ssh %s "cd %s; %s . -type f" > %s' % (source_um, source_path, find, files_file), shell=True)
+else:
+    # Source is a local directory.
+    subprocess.call('%s . -type f > %s' % (find, files_file), shell=True, cwd=source)
 
 # split the files file in chunks of 100
 chunk_file = os.path.join(tmp_dir, 'chunk')

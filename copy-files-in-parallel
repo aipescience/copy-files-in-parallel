@@ -2,7 +2,6 @@
 import argparse
 import os
 import subprocess
-import shutil
 import sys
 import uuid
 
@@ -19,6 +18,10 @@ parser.add_argument('--arcfour', action='store_true', help='use arcfour as compr
 parser.add_argument('--tmp', default='/tmp/', help='path to store temporary data')
 
 args = parser.parse_args()
+
+# check if GNU parallel is installed
+if not any(os.access(os.path.join(path, 'parallel'), os.X_OK) for path in os.environ["PATH"].split(os.pathsep)):
+    raise Exception('GNU parallel is not installed.')
 
 # remove trailing slashes
 source = args.source.rstrip('/')
@@ -88,6 +91,3 @@ print 'tmp_dir is', tmp_dir
 
 # run parallel with the jobs file
 subprocess.call('cat %s | parallel -P%i --eta' % (jobs_file, args.j), shell=True)
-
-# run rsync to on the whole thing for last a check
-subprocess.call('rsync -a --delete %s/ %s/' % (source, destination), shell=True)

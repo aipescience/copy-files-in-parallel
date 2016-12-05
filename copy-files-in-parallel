@@ -83,11 +83,14 @@ else:
 
     jobs_file_handler.close()
 
-n_files = subprocess.check_output('wc -l %s' % files_file, shell=True).split()[0]
-n_jobs = subprocess.check_output('wc -l %s' % jobs_file, shell=True).split()[0]
+try:
+    n_files = subprocess.check_output('wc -l %s' % files_file, shell=True).split()[0]
+    n_jobs = subprocess.check_output('wc -l %s' % jobs_file, shell=True).split()[0]
 
-print 'Copying %s files using %s jobs!' % (n_files, n_jobs)
-print 'tmp_dir is', tmp_dir
+    print 'Copying %s files using %s jobs!' % (n_files, n_jobs)
+    print 'tmp_dir is', tmp_dir
+except AttributeError:
+    pass
 
 # run parallel with the jobs file
 subprocess.call('cat %s | parallel -P%i --eta' % (jobs_file, args.j), shell=True)
